@@ -39,7 +39,13 @@
 <!-- The path a submission takes, from arriving to the label a reader sees.
      Six or seven steps — this is the trace you wrote in Milestone 1. -->
 
-
+1. **The writing site sends a request.** It posts the `text` and a `creator_id` as JSON to `POST /submit`.
+2. **`app.py` checks the input.** Missing or empty text is rejected. Valid text gets a `content_id`, so it can be found again later if the writer appeals.
+3. **Signal one scores word choice.** `detector.py` gives a `model_score` from 0 to 1 for how predictable the words are.
+4. **Signal two scores shape.** `stylometry.py` gives a `style_score` from 0 to 1 for how even the sentences and punctuation are.
+5. **The two scores become one.** `scoring.py::combine_signals` merges them into a single confidence score.
+6. **The score becomes a label.** `scoring.py::score_to_label` turns it into a guess (`ai`, `human` or `unsure`) and a plain-English sentence a reader can understand.
+7. **The decision is logged and returned.** `audit.py` writes everything to `logs/audit.jsonl`, and the service sends the result back for the site to show. If the writer disagrees, they can send the `content_id` to `POST /appeal`, which marks the item `under_review`.
 
 ---
 
@@ -53,19 +59,19 @@
 
 ### Signal one — the model signal
 
-**What it measures:**
+**What it measures:** How predictable each word is, given the words before it (perplexity, using GPT-2). More predictable text scores as more AI-like.
 
-**Why that might differ between human and AI writing:**
+**Why that might differ between human and AI writing:** AI writes by picking a likely next word, so its text is easy to predict. Humans make less expected word choices.
 
-**What it can't see:**
+**What it can't see:** Predictable doesn't mean AI. Kids and people writing in English as a second language often use simple, common words, so their real writing can look like AI. For example, "I like my school. My teacher is nice. I study every day." scored 0.65 (AI-like).
 
 ### Signal two — the style signal
 
-**What it measures:**
+**What it measures:** The shape of the text, without reading it: how much sentence length varies, how often words repeat, and how much punctuation is used.
 
-**Why that might differ between human and AI writing:**
+**Why that might differ between human and AI writing:** AI sentences tend to be similar in length. Human writing is more uneven, with very short sentences next to long ones. In the class samples, the AI text's sentences were 4–18 words; the human text's were 2–36.
 
-**What it can't see:**
+**What it can't see:** It can't read, so it doesn't know what the text says. Changing only the shape, like splitting sentences, adding typos or adding dashes, can fool it without changing the content. Punctuation habits like the dash are also used by both humans and AI.
 
 ### The combining rule
 
