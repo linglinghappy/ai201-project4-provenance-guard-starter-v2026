@@ -42,63 +42,63 @@ Two things worth knowing before you pick numbers:
   a **miss**.
 
 ---
-## 1.
+## 1. My own writing is rarely called AI
 
 <!-- Your criterion. It must name a number. -->
 
-
+Of 10 pieces I wrote myself, at most 1 is labeled high-confidence AI, in each of the 3 trials.
 
 **Why this target:**
 
-
+On a writing site, wrong accusation costs a real writer much more than a missed detection costs the site. I write in English as a second language, which is exactly the kind of writing signal one tends to score as AI, so this is a hard target, not an easy one.
 
 ---
 
-## 2.
+## 2. Clearly AI and clearly human text score far apart
 
 <!-- Your criterion. -->
 
-
+The combined score for the class `clearly_ai` sample is at least 0.35 higher than for the `clearly_human` sample, in each of the 3 trials.
 
 **Why this target:**
 
-
+If the two signals can't separate the most obvious cases, their judgment on anything in between means nothing. 0.35 is more than the width of my unsure band, so the two can't both land in it.
 
 ---
 
-## 3.
+## 3. All three labels are reachable
 
 <!-- Your criterion. -->
 
-
+Among 6 test texts (2 clearly AI, 2 clearly human, 2 borderline), each of the three labels (human, unsure, AI) appears at least once, in each of the 3 trials.
 
 **Why this target:**
 
-
+A label no score can produce means my thresholds are wrong. Writers would only ever see two of the three messages I wrote.
 
 ---
 
-## 4.
+## 4. Every appeal is recorded
 
 <!-- Your criterion. -->
 
-
+5 of 5 appeals against real `content_id`s return success and add an `under_review` entry to the log. An appeal with a `content_id` that doesn't exist returns 404 and adds nothing to the log.
 
 **Why this target:**
 
-
+The appeal is the only protection a wrongly accused writer has, so it can't fail even once. A typo in the `content_id` should give a clear error, not fail silently.
 
 ---
 
-## 5.
+## 5. Bad input never crashes the service
 
 <!-- Your criterion. -->
 
-
+4 of 4 bad requests (no `text` field, empty text, `text` set to null, and text of 50,000 words) return a 4xx error with a JSON message, never a 500. `/ping` still answers afterward.
 
 **Why this target:**
 
-
+Crashing on malformed input is one of the most common real failures, and the next unit's attack set will try it. A writer who sends something wrong should be told what went wrong.
 
 ---
 
