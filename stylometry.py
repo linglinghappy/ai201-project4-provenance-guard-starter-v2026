@@ -33,6 +33,15 @@ anything together:
 import re
 import statistics
 
+# Where each measure counts as fully AI-like or fully human-like, set from the
+# class samples (spread 0.41 vs 1.13, punctuation kinds 2 vs 5).
+SPREAD_AI = 0.3
+SPREAD_HUMAN = 1.0
+PUNCT_KINDS_AI = 2
+PUNCT_KINDS_HUMAN = 5
+
+PUNCTUATION = set(',.;:!?—–"“”()…')
+
 
 def sentences(text: str) -> list[str]:
     """Split into sentences. Rough and good enough — given to you."""
@@ -63,9 +72,16 @@ def sentence_length_spread(text: str) -> float:
     Watch the edge case: a one-sentence submission has no spread at all, and
     `stdev` raises on fewer than two values. Decide what that should return
     before the attack set decides for you.
+
+    My choice: stdev divided by mean, so higher means more human. The class
+    samples land at 0.41 (AI) and 1.13 (human). One sentence carries no
+    information about spread, so it returns the neutral midpoint and leaves
+    the call to signal one.
     """
-    # TODO: replace this
-    return 0.0
+    lengths = [len(words(s)) for s in sentences(text)]
+    if len(lengths) < 2 or statistics.mean(lengths) == 0:
+        return (SPREAD_AI + SPREAD_HUMAN) / 2
+    return round(statistics.stdev(lengths) / statistics.mean(lengths), 4)
 
 
 def type_token_ratio(text: str) -> float:
@@ -79,9 +95,14 @@ def type_token_ratio(text: str) -> float:
     longer, because common words repeat. Two texts of different lengths aren't
     directly comparable on it, and if your test inputs vary a lot in length,
     that alone can look like a signal.
+
+    Computed but left out of `style_signal`: on the class samples it ran
+    backwards, 0.85 for the AI text and 0.73 for the human one.
     """
-    # TODO: replace this
-    return 0.0
+    tokens = words(text)
+    if not tokens:
+        return 0.0
+    return round(len(set(tokens)) / len(tokens), 4)
 
 
 def punctuation_density(text: str) -> float:
@@ -93,9 +114,15 @@ def punctuation_density(text: str) -> float:
         semicolons, dashes — is a real choice. Semicolons and em dashes are
         more interesting than full stops, because they vary more between
         writers.
+
+    My choice: how many different kinds of punctuation appear, not how many
+    marks. A full stop counts once however many sentences there are, so AI
+    text that ends every sentence with one gets no credit for it. Apostrophes
+    and hyphens are left out because they sit inside words (today's,
+    fast-paced) and AI uses them as freely as people do. The class samples
+    use 2 kinds (AI) and 5 kinds (human). Higher means more human.
     """
-    # TODO: replace this
-    return 0.0
+    return float(len({c for c in text if c in PUNCTUATION}))
 
 
 # ── Combining them ───────────────────────────────────────────────────────────
@@ -121,9 +148,19 @@ def style_signal(text: str) -> float:
     clearly human, plain conventional human writing, lightly-edited AI — before
     you trust it. Plain and ordinary, not formal: formal prose reads as *human*
     to signal one, and it is plain writing that gets accused.
+
+    My rule: scale spread and punctuation variety onto 0–1 "how human",
+    average the two, and flip it so higher means more AI. Type-token ratio
+    is left out (see `type_token_ratio`).
     """
-    # TODO: replace this
-    return 0.5
+    spread = _scale(sentence_length_spread(text), SPREAD_AI, SPREAD_HUMAN)
+    variety = _scale(punctuation_density(text), PUNCT_KINDS_AI, PUNCT_KINDS_HUMAN)
+    return round(1.0 - (spread + variety) / 2, 4)
+
+
+def _scale(value: float, ai_end: float, human_end: float) -> float:
+    """Map a raw measure onto 0 (AI end) to 1 (human end), clipped."""
+    return min(max((value - ai_end) / (human_end - ai_end), 0.0), 1.0)
 
 
 if __name__ == "__main__":
