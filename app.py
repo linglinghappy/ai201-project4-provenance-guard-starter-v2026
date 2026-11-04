@@ -218,6 +218,14 @@ def submit():
         return jsonify({"error": "bad_request", "message": str(exc)}), 400
 
     content_id = f"c_{uuid.uuid4().hex[:12]}"
+    
+    audit.log_decision(
+    content_id=content_id,
+    creator_id=creator_id,
+    guess="unsure",
+    model_score=model_score,
+    status="decided",
+    )
 
     return jsonify({
         "content_id": content_id,
