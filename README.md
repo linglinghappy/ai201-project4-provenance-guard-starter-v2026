@@ -223,15 +223,15 @@ $ curl "http://127.0.0.1:5000/log?limit=3"
 
 **Moment 1**
 
-- *What I asked for:*
-- *What came back:*
-- *What I changed:*
+- *What I asked for:* Draft text for my three labels.
+- *What came back:* An unsure label that said "We can't tell whether this was written by a person or with AI. Plenty of genuine writing lands here, so this is not an accusation."
+- *What I changed:* I rewrote it around the idea that there's a lack of evidence either way: "There isn't enough evidence to tell whether this was written by a person or with AI." It says what is actually true without needing to explain that it isn't an accusation.
 
 **Moment 2**
 
-- *What I asked for:*
-- *What came back:*
-- *What I changed:*
+- *What I asked for:* What `sentence_length_spread` should return for a one-sentence submission, where there's no spread to measure.
+- *What came back:* A recommendation to return 0.0, which treats one sentence as AI-like.
+- *What I changed:* I wanted 1.0 at first, to protect real writers. We discussed it: 1.0 would let AI text through just by writing one long sentence. I settled on the neutral middle value, because one sentence carries no information about spread, so the signal shouldn't pretend it does.
 
 <!-- ═══════════════════════ UNIT 8 — THE TEST ═══════════════════════ -->
 
