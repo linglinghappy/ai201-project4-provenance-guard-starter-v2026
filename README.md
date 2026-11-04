@@ -98,6 +98,8 @@
 
 "Obsidian lanterns flicker sideways. Grandmother hoards brass keys. Herons interrogate the marsh." Signal one scored it 0.02 (rare words, very human), and signal two scored it 1.00 (every sentence is 4 words, only full stops, very AI). My rule takes the lower score, 0.02, so it is labeled human.
 
+(The plain human sentence in the table above combines to 0.65, which is why my AI threshold is 0.70 and not 0.65. See Label Variants.)
+
 
 
 ---
@@ -111,15 +113,18 @@
 
 | Label | Score range | The exact text a reader sees |
 |---|---|---|
-| high-confidence human |  |  |
-| unsure |  |  |
-| high-confidence AI |  |  |
+| high-confidence human | 0.00 – 0.35 | We think this was probably written by a person. |
+| unsure | 0.35 – 0.70 | There isn't enough evidence to tell whether this was written by a person or with AI. |
+| high-confidence AI | 0.70 – 1.00 | Our automated check found strong signs that this may have been written with AI. The check can be wrong. If you wrote this yourself, you can appeal and a person will review it. |
 
 **Why I worded the "unsure" one this way:**
 <!-- It's the hardest of the three. It has to admit uncertainty without
      sounding like an accusation, because the person reading it may well have
      written every word themselves. -->
 
+It says what is true: the system doesn't have enough evidence either way. It doesn't lean toward AI, so a writer who wrote every word themselves isn't being accused of anything.
+
+I raised the AI threshold from 0.65 to 0.70 so the plain human sentence "I like my school. My teacher is nice. I study every day." (combined 0.65) lands in unsure instead of being called AI.
 
 
 ---
@@ -143,12 +148,12 @@ $ python -c 'import json,sys; print(json.dumps({"text": open(sys.argv[1]).read()
 
 ```json
 {
-  "confidence": 0.5,
-  "content_id": "c_60f2666f43fb",
-  "guess": "unsure",
-  "label": "not built yet",
+  "confidence": 0.7576,
+  "content_id": "c_05a60087b357",
+  "guess": "ai",
+  "label": "Our automated check found strong signs that this may have been written with AI. The check can be wrong. If you wrote this yourself, you can appeal and a person will review it.",
   "model_score": 0.7576,
-  "style_score": null
+  "style_score": 0.9192
 }
 ```
 
@@ -157,11 +162,15 @@ $ python -c 'import json,sys; print(json.dumps({"text": open(sys.argv[1]).read()
 ```bash
 $ curl -X POST http://127.0.0.1:5000/appeal \
   -H "Content-Type: application/json" \
-  -d '{"content_id": "...", "reasoning": "..."}'
+  -d '{"content_id": "c_05a60087b357", "reasoning": "I wrote this myself for a class assignment."}'
 ```
 
 ```json
-
+{
+  "content_id": "c_05a60087b357",
+  "message": "Thanks. Your appeal has been recorded and a person will review it.",
+  "status": "under_review"
+}
 ```
 
 **What the log shows afterwards**
@@ -175,37 +184,34 @@ $ curl "http://127.0.0.1:5000/log?limit=3"
   "count": 3,
   "entries": [
     {
-      "combined_score": null,
-      "content_id": "c_60f2666f43fb",
+      "combined_score": 0.3919,
+      "content_id": "c_5caf68b71284",
       "creator_id": "ling",
       "guess": "unsure",
       "label": null,
+      "model_score": 0.3919,
+      "status": "decided",
+      "style_score": 0.557,
+      "timestamp": "2026-11-04T05:15:11+00:00"
+    },
+    {
+      "combined_score": 0.7576,
+      "content_id": "c_05a60087b357",
+      "creator_id": "ling",
+      "guess": "ai",
+      "label": "Our automated check found strong signs that this may have been written with AI. The check can be wrong. If you wrote this yourself, you can appeal and a person will review it.",
       "model_score": 0.7576,
       "status": "decided",
-      "style_score": null,
-      "timestamp": "2026-11-04T04:23:54+00:00"
+      "style_score": 0.9192,
+      "timestamp": "2026-11-04T05:23:45+00:00"
     },
     {
-      "combined_score": null,
-      "content_id": "c_9b6c64698b00",
+      "content_id": "c_05a60087b357",
       "creator_id": "ling",
-      "guess": "unsure",
-      "label": null,
-      "model_score": 0.4455,
-      "status": "decided",
-      "style_score": null,
-      "timestamp": "2026-11-04T04:23:54+00:00"
-    },
-    {
-      "combined_score": null,
-      "content_id": "c_58c47ab23b1c",
-      "creator_id": "ling",
-      "guess": "unsure",
-      "label": null,
-      "model_score": 0.3587,
-      "status": "decided",
-      "style_score": null,
-      "timestamp": "2026-11-04T04:23:54+00:00"
+      "event": "appeal",
+      "reasoning": "I wrote this myself for a class assignment.",
+      "status": "under_review",
+      "timestamp": "2026-11-04T05:25:34+00:00"
     }
   ]
 }
