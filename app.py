@@ -200,13 +200,31 @@ def submit():
     a malformed input is one of the most common real failures there is.
     """
     payload = request.get_json(silent=True) or {}
+    text = payload.get("text")
+    creator_id = payload.get("creator_id", "unknown")
+
+    if not isinstance(text, str) or not text.strip():
+        return jsonify({
+            "error": "bad_request",
+            "message": 'Send JSON with a non-empty "text".',
+        }), 400
+
+    import detector
+
+    try:
+        model_score = detector.model_signal(text)
+    except ValueError as exc:
+        # detector raises this when the text is too short to score
+        return jsonify({"error": "bad_request", "message": str(exc)}), 400
+
+    content_id = f"c_{uuid.uuid4().hex[:12]}"
 
     return jsonify({
-        "content_id": "hardcoded",
+        "content_id": content_id,
         "guess": "unsure",
         "confidence": 0.5,
         "label": "not built yet",
-        "model_score": None,
+        "model_score": model_score,
         "style_score": None,
     }), 200
 
