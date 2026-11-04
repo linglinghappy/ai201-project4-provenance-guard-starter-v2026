@@ -67,7 +67,7 @@
 
 ### Signal two — the style signal
 
-**What it measures:** The shape of the text, without reading it: how much sentence length varies, how often words repeat, and how much punctuation is used.
+**What it measures:** The shape of the text, without reading it: how much sentence length varies, and how many different kinds of punctuation are used. I also tried how often words repeat (type-token ratio), but left it out because on the class samples it ran backwards (AI 0.85, human 0.73).
 
 **Why that might differ between human and AI writing:** AI sentences tend to be similar in length. Human writing is more uneven, with very short sentences next to long ones. In the class samples, the AI text's sentences were 4–18 words; the human text's were 2–36.
 
@@ -78,9 +78,16 @@
 <!-- Write the rule in words, then give the numbers. What happens when the two
      signals disagree? -->
 
-**The rule:**
+**The rule:** Take the lower of the two scores. Text is only called AI if both signals agree it looks like AI; if either one thinks it looks human, that one wins. I chose this because wrongly accusing a real writer costs more than missing AI text. The cost is that AI text only has to fool one signal to get through.
 
-**The numbers:**
+**The numbers:** `combined = min(model_score, style_score)`. No weights, so `WEIGHT_MODEL_SIGNAL` and `WEIGHT_STYLE_SIGNAL` in `config.py` are not used.
+
+| Text | model | style | combined |
+|---|---|---|---|
+| clearly AI (class sample) | 0.75 | 0.92 | 0.75 |
+| clearly human (class sample) | 0.44 | 0.00 | 0.00 |
+| borderline / lightly-edited AI (class sample) | 0.35 | 0.55 | 0.35 |
+| plain human: "I like my school. My teacher is nice. I study every day." | 0.65 | 1.00 | 0.65 |
 
 **Where it lives:** `scoring.py::combine_signals`
 
@@ -88,6 +95,8 @@
      somewhere else, say where. -->
 
 **A case where my two signals split, and what my rule does with it:**
+
+"Obsidian lanterns flicker sideways. Grandmother hoards brass keys. Herons interrogate the marsh." Signal one scored it 0.02 (rare words, very human), and signal two scored it 1.00 (every sentence is 4 words, only full stops, very AI). My rule takes the lower score, 0.02, so it is labeled human.
 
 
 

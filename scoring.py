@@ -51,12 +51,13 @@ def combine_signals(model_score: float, style_score: float) -> float:
 
     The weights in config.py are placeholders. Change them, or ignore them and
     write a different rule.
+
+    My rule: take the lower score. Text is only called AI when both signals
+    agree, so a split always resolves toward human. That protects writers
+    from wrong accusations, at the cost of letting AI text through when it
+    fools either signal. The weights in config.py are not used.
     """
-    # TODO: replace this
-    return (
-        config.WEIGHT_MODEL_SIGNAL * model_score
-        + config.WEIGHT_STYLE_SIGNAL * style_score
-    )
+    return round(min(model_score, style_score), 4)
 
 
 def score_to_label(score: float) -> tuple[str, str]:
