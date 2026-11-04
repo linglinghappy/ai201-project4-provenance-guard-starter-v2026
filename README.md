@@ -128,13 +128,19 @@
      diagnostics. -->
 
 ```bash
-$ curl -X POST http://127.0.0.1:5000/submit \
-  -H "Content-Type: application/json" \
-  -d '{"text": "...", "creator_id": "..."}'
+$ python -c 'import json,sys; print(json.dumps({"text": open(sys.argv[1]).read(), "creator_id": "ling"}))' samples/clearly_ai.txt \
+  | curl -s -X POST http://127.0.0.1:5000/submit -H "Content-Type: application/json" -d @-
 ```
 
 ```json
-
+{
+  "confidence": 0.5,
+  "content_id": "c_60f2666f43fb",
+  "guess": "unsure",
+  "label": "not built yet",
+  "model_score": 0.7576,
+  "style_score": null
+}
 ```
 
 **An appeal**
@@ -156,7 +162,44 @@ $ curl "http://127.0.0.1:5000/log?limit=3"
 ```
 
 ```json
-
+{
+  "count": 3,
+  "entries": [
+    {
+      "combined_score": null,
+      "content_id": "c_60f2666f43fb",
+      "creator_id": "ling",
+      "guess": "unsure",
+      "label": null,
+      "model_score": 0.7576,
+      "status": "decided",
+      "style_score": null,
+      "timestamp": "2026-11-04T04:23:54+00:00"
+    },
+    {
+      "combined_score": null,
+      "content_id": "c_9b6c64698b00",
+      "creator_id": "ling",
+      "guess": "unsure",
+      "label": null,
+      "model_score": 0.4455,
+      "status": "decided",
+      "style_score": null,
+      "timestamp": "2026-11-04T04:23:54+00:00"
+    },
+    {
+      "combined_score": null,
+      "content_id": "c_58c47ab23b1c",
+      "creator_id": "ling",
+      "guess": "unsure",
+      "label": null,
+      "model_score": 0.3587,
+      "status": "decided",
+      "style_score": null,
+      "timestamp": "2026-11-04T04:23:54+00:00"
+    }
+  ]
+}
 ```
 
 ---
