@@ -30,6 +30,8 @@ from flask import Flask, jsonify, request
 
 import audit
 import config
+import scoring
+import stylometry
 
 app = Flask(__name__)
 
@@ -217,23 +219,28 @@ def submit():
         # detector raises this when the text is too short to score
         return jsonify({"error": "bad_request", "message": str(exc)}), 400
 
+    style_score = stylometry.style_signal(text)
+    combined_score = scoring.combine_signals(model_score, style_score)
+
     content_id = f"c_{uuid.uuid4().hex[:12]}"
-    
+
     audit.log_decision(
-    content_id=content_id,
-    creator_id=creator_id,
-    guess="unsure",
-    model_score=model_score,
-    status="decided",
+        content_id=content_id,
+        creator_id=creator_id,
+        guess="unsure",
+        model_score=model_score,
+        style_score=style_score,
+        combined_score=combined_score,
+        status="decided",
     )
 
     return jsonify({
         "content_id": content_id,
         "guess": "unsure",
-        "confidence": 0.5,
+        "confidence": combined_score,
         "label": "not built yet",
         "model_score": model_score,
-        "style_score": None,
+        "style_score": style_score,
     }), 200
 
 
