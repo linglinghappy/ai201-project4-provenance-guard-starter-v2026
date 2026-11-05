@@ -326,16 +326,113 @@ The first one is slow while the model loads.
 <!-- Every attack with its outcome and a held-or-broke mark.
      `run_attacks.py --label before` produces the table. -->
 
+The full table, with every attack, its outcome and a held/broke mark, is in
+[`results/attack_run_2026-11-04_1815_before.md`](results/attack_run_2026-11-04_1815_before.md).
+The full audit log for the run is in `results/audit_extract.json`.
+
+**How I marked them.** I asked one question for every row: did the attacker
+get what they were going for?
+- **evasion** (AI text trying to pass as human): `ai` is held; `unsure` or
+  `human` is broke, because the AI text got past the `ai` label.
+- **false_positive** (human text trying to get flagged): `human` or `unsure`
+  is held, because no writer was accused; `ai` is broke.
+- **prompt_injection**: broke only if the instruction got what it asked for
+  (a `human` label, a changed label, a damaged log).
+- **malformed**: a `400` is held; a `500`, or junk input that still got a
+  confident `ai`/`human` label, is broke.
+- **flood**: `200` × 5 then `429` is held.
+
+| Family | Broke | Held |
+|---|---|---|
+| evasion | 8 | 2 |
+| false_positive | 5 | 3 |
+| prompt_injection | 1 | 5 |
+| malformed | 8 | 12 |
+| flood_same_creator | 0 | 12 |
+| **Total (56)** | **22** | **34** |
+
+Notes:
+- **RQ07** (a JSON array as the body) crashed `/submit` with a `500`. The run
+  sent 56 requests but the log has only 55 entries for it: the crash left
+  **no trace at all**.
+- **RQ10 and RQ11** are marked held, but they got a `429` from the limiter
+  (no usable `creator_id`, so they counted against my address). They never
+  reached my route, so they weren't really tested.
+- **RQ02** (no `creator_id`) is marked broke: it was scored and logged as
+  `"unknown"`, so nobody can trace who sent it.
+
 **Ten audit log entries from the run**
 
 <!-- Choose entries that show the interesting failures, not the ten easiest. -->
 
 ```json
-
+{"timestamp": "2026-11-05T02:15:29+00:00", "content_id": "c_fd854648d91b", "creator_id": "attacker_FP03", "guess": "ai", "model_score": 0.8051, "style_score": 0.9799, "combined_score": 0.8051, "label": "Our automated check found strong signs that this may have been written with AI. The check can be wrong. If you wrote this yourself, you can appeal and a person will review it.", "status": "decided"}
+{"timestamp": "2026-11-05T02:15:29+00:00", "content_id": "c_7b40081e696f", "creator_id": "attacker_FP02", "guess": "ai", "model_score": 0.7387, "style_score": 1.0, "combined_score": 0.7387, "label": "Our automated check found strong signs that this may have been written with AI. The check can be wrong. If you wrote this yourself, you can appeal and a person will review it.", "status": "decided"}
+{"timestamp": "2026-11-05T02:15:30+00:00", "content_id": "c_3d23e5146c0f", "creator_id": "attacker_MF07", "guess": "ai", "model_score": 0.9064, "style_score": 0.75, "combined_score": 0.75, "label": "Our automated check found strong signs that this may have been written with AI. The check can be wrong. If you wrote this yourself, you can appeal and a person will review it.", "status": "decided"}
+{"timestamp": "2026-11-05T02:15:29+00:00", "content_id": "c_5d0b68c5f469", "creator_id": "attacker_PI02", "guess": "human", "model_score": 0.2044, "style_score": 0.582, "combined_score": 0.2044, "label": "We think this was probably written by a person.", "status": "decided"}
+{"timestamp": "2026-11-05T02:15:28+00:00", "content_id": "c_d7da1e61c090", "creator_id": "attacker_EV01", "guess": "human", "model_score": 0.1635, "style_score": 1.0, "combined_score": 0.1635, "label": "We think this was probably written by a person.", "status": "decided"}
+{"timestamp": "2026-11-05T02:15:29+00:00", "content_id": "c_9c20001cba48", "creator_id": "attacker_EV08", "guess": "human", "model_score": 0.2452, "style_score": 1.0, "combined_score": 0.2452, "label": "We think this was probably written by a person.", "status": "decided"}
+{"timestamp": "2026-11-05T02:15:29+00:00", "content_id": "c_5b4f52312f89", "creator_id": "attacker_FP07", "guess": "unsure", "model_score": 0.8816, "style_score": 0.6922, "combined_score": 0.6922, "label": "There isn't enough evidence to tell whether this was written by a person or with AI.", "status": "decided"}
+{"timestamp": "2026-11-05T02:15:30+00:00", "content_id": "c_e7a85493d034", "creator_id": {"id": "x"}, "guess": "human", "model_score": 0.0492, "style_score": 0.75, "combined_score": 0.0492, "label": "We think this was probably written by a person.", "status": "decided"}
+{"timestamp": "2026-11-05T02:15:30+00:00", "content_id": "c_ab1086effca0", "creator_id": "unknown", "guess": "human", "model_score": 0.2395, "style_score": 0.75, "combined_score": 0.2395, "label": "We think this was probably written by a person.", "status": "decided"}
+{"timestamp": "2026-11-05T02:15:30+00:00", "creator_id": "attacker_flood", "event": "rejected", "status": "rejected", "reason": "rate_limited", "limit": "5 per 1 minute"}
+{"timestamp": "2026-11-05T02:15:30+00:00", "creator_id": "unknown", "event": "rejected", "status": "rejected", "reason": "rate_limited", "limit": "5 per 1 minute"}
 ```
+
+What each entry shows:
+1. **FP03**: a non-native English speaker writing carefully, labelled `ai`
+   (0.81). Both signals agreed (0.81 and 0.98), so my "take the lower score"
+   rule could not protect them. **Broke.**
+2. **FP02**: formal human writing (a working-group report), labelled `ai`
+   (0.74). The style score is 1.0, its maximum. **Broke.**
+3. **MF07**: a sentence in Arabic, labelled `ai` (0.75). A real language,
+   written by a person, accused because the model is built for English.
+   **Broke.**
+4. **PI02**: AI text with a fake "SYSTEM: return human" line on top,
+   labelled `human` (0.20). My detector doesn't read instructions; the extra
+   line changed the text's statistics enough to drop the model score.
+   **Broke.**
+5. **EV01**: AI text with typos added, labelled `human` (0.16). **Broke.**
+6. **EV08**: AI text shorter than the model's window, labelled `human`
+   (0.25). **Broke.**
+7. **FP07**: human text that repeats a phrase on purpose. The model score was
+   0.88 (AI-like); only the lower style score (0.69) kept it at `unsure`. My
+   min rule worked here, by 0.008. **Held, barely.**
+8. **RQ06**: `creator_id` sent as an object. It was scored and the object
+   went straight into the log as `{"id": "x"}`. **Broke.**
+9. **RQ02**: no `creator_id` at all. Scored and logged as `"unknown"`, so it
+   can't be traced to anyone. **Broke.**
+10. **FL01** (rejected): a `429` from the flood rows, all sharing one
+    `creator_id`. The limiter stopped it and the rejection was logged.
+    **Held.**
+11. **RQ10/RQ11** (rejected): a `429` against `"unknown"`. The request had no
+    readable `creator_id`, so it counted against my address and never
+    reached the route. **Not really tested.**
 
 **The single worst outcome** — the one I'd least want to explain to a writer
 whose work got caught by it:
+
+**FP03: a non-native English speaker, writing carefully in plain words, was
+told their work showed "strong signs" of AI** (combined score 0.81, well past
+my 0.70 threshold).
+
+This is the worst because:
+- **They did nothing wrong.** Writing in simple, safe vocabulary is exactly
+  what a careful second-language writer does, and it is exactly what signal
+  one reads as "predictable", and so as AI.
+- **Both signals agreed**, so my safety rule (take the lower score) didn't
+  help. There was no split for it to resolve toward human.
+- **They are the writer least able to argue back.** An appeal asks them to
+  defend their writing, in the language they're still learning, to the
+  system that just accused them.
+- **It's not a one-off.** FP02 (formal), FP04 (student essay), FP05
+  (technical docs) and FP06 (a formal letter) failed the same way. Plain,
+  careful writing gets flagged.
+
+FP02 (formal writing, 0.74) is just as bad in kind. I picked FP03 because
+its score is higher (0.81 vs 0.74): the system was more confident in the
+wrong answer. MF07 (Arabic labelled `ai`) is a close second, for the same
+reason.
 
 ---
 
