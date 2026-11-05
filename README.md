@@ -82,12 +82,13 @@
 
 **The numbers:** `combined = min(model_score, style_score)`. No weights, so `WEIGHT_MODEL_SIGNAL` and `WEIGHT_STYLE_SIGNAL` in `config.py` are not used.
 
-| Text | model | style | combined |
-|---|---|---|---|
-| clearly AI (class sample) | 0.75 | 0.92 | 0.75 |
-| clearly human (class sample) | 0.44 | 0.00 | 0.00 |
-| borderline / lightly-edited AI (class sample) | 0.35 | 0.55 | 0.35 |
-| plain human: "I like my school. My teacher is nice. I study every day." | 0.65 | 1.00 | 0.65 |
+
+| Text                                                                    | model | style | combined |
+| ------------------------------------------------------------------------- | ------- | ------- | ---------- |
+| clearly AI (class sample)                                               | 0.75  | 0.92  | 0.75     |
+| clearly human (class sample)                                            | 0.44  | 0.00  | 0.00     |
+| borderline / lightly-edited AI (class sample)                           | 0.35  | 0.55  | 0.35     |
+| plain human: "I like my school. My teacher is nice. I study every day." | 0.65  | 1.00  | 0.65     |
 
 **Where it lives:** `scoring.py::combine_signals`
 
@@ -100,8 +101,6 @@
 
 (The plain human sentence in the table above combines to 0.65, which is why my AI threshold is 0.70 and not 0.65. See Label Variants.)
 
-
-
 ---
 
 ## Label Variants
@@ -111,13 +110,15 @@
 
      Write them for someone who has never heard the word "threshold". -->
 
-| Label | Score range | The exact text a reader sees |
-|---|---|---|
-| high-confidence human | 0.00 – 0.35 | We think this was probably written by a person. |
-| unsure | 0.35 – 0.70 | There isn't enough evidence to tell whether this was written by a person or with AI. |
-| high-confidence AI | 0.70 – 1.00 | Our automated check found strong signs that this may have been written with AI. The check can be wrong. If you wrote this yourself, you can appeal and a person will review it. |
+
+| Label                 | Score range  | The exact text a reader sees                                                                                                                                                    |
+| ----------------------- | -------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| high-confidence human | 0.00 – 0.35 | We think this was probably written by a person.                                                                                                                                 |
+| unsure                | 0.35 – 0.70 | There isn't enough evidence to tell whether this was written by a person or with AI.                                                                                            |
+| high-confidence AI    | 0.70 – 1.00 | Our automated check found strong signs that this may have been written with AI. The check can be wrong. If you wrote this yourself, you can appeal and a person will review it. |
 
 **Why I worded the "unsure" one this way:**
+
 <!-- It's the hardest of the three. It has to admit uncertainty without
      sounding like an accusation, because the person reading it may well have
      written every word themselves. -->
@@ -125,7 +126,6 @@
 It says what is true: the system doesn't have enough evidence either way. It doesn't lean toward AI, so a writer who wrote every word themselves isn't being accused of anything.
 
 I raised the AI threshold from 0.65 to 0.70 so the plain human sentence "I like my school. My teacher is nice. I study every day." (combined 0.65) lands in unsure instead of being called AI.
-
 
 ---
 
@@ -242,14 +242,43 @@ $ curl "http://127.0.0.1:5000/log?limit=3"
 **My limits:** 5 per minute, 50 per day
 
 **Why those numbers and not others:**
+
 <!-- Think about two people: a real writer submitting their own work a few
      times an hour, and a script sending a thousand variations to map your
      thresholds. Your numbers have to be liveable for the first and hostile to
      the second. -->
 
-**What a caller counts as:** <!-- per address, or per creator_id? They fail
-differently — one script can look like a thousand callers, and one household
-can look like one. -->
+As we discussed in class, I started from how a real writer behaves and
+picked numbers that fit that, then checked them against a script.
+
+**A real writer.** A person submits their own work, reads the result, maybe
+fixes a typo or a sentence, and submits again. That is a few submissions in a
+short burst, and maybe a handful across a whole day.
+- **5 per minute** leaves room for that burst: submit, fix, submit again.
+- **50 per day** is far more than one person would ever need for their own
+  writing.
+
+So a real writer should never see a `429`.
+
+**A script.** Someone trying to map my thresholds sends many small variations
+of the same text, maybe 1,000 of them, to see where the label flips.
+- With only the per-minute limit: 1,000 ÷ 5 = 200 minutes, about **3 hours**.
+  That is not much protection.
+- With the daily limit too: 1,000 ÷ 50 = **20 days**.
+
+So the per-minute limit stops fast bursts, and the daily limit is what really
+slows down a script.
+
+**Why not other numbers?**
+- **Lower** (e.g. 1 per minute): a writer fixing a typo and resubmitting right
+  away would get blocked.
+- **Higher** (e.g. the starter's 200 per day): 1,000 variations would get
+  through in just 5 days.
+
+**Known weakness:** the limit counts per `creator_id`. A script that uses a new
+id for every request is never limited (see below).
+
+**What a caller counts as:** 
 Per `creator_id`. The limiter key (`rate_limit_key` in `app.py`) uses the
 `creator_id` from the request body, and falls back to the caller's IP address
 only when the body has no usable `creator_id`. The weakness: a script that
@@ -287,6 +316,7 @@ The first one is slow while the model loads.
 
 10 of 15 were rate limited.
 ```
+
 (Also saved as `results/flood_2026-11-04_1718.md`.)
 
 ---
@@ -295,8 +325,6 @@ The first one is slow while the model loads.
 
 <!-- Every attack with its outcome and a held-or-broke mark.
      `run_attacks.py --label before` produces the table. -->
-
-
 
 **Ten audit log entries from the run**
 
@@ -309,21 +337,20 @@ The first one is slow while the model loads.
 **The single worst outcome** — the one I'd least want to explain to a writer
 whose work got caught by it:
 
-
-
 ---
 
 ## Run Log and Verdicts
 
 <!-- Your five criteria across three trials. `run_eval.py --label before`. -->
 
+
 | Criterion | Target | Run 1 | Run 2 | Run 3 | Verdict |
-|---|---|---|---|---|---|
-| 1.  |  |  |  |  |  |
-| 2.  |  |  |  |  |  |
-| 3.  |  |  |  |  |  |
-| 4.  |  |  |  |  |  |
-| 5.  |  |  |  |  |  |
+| ----------- | -------- | ------- | ------- | ------- | --------- |
+| 1.        |        |       |       |       |         |
+| 2.        |        |       |       |       |         |
+| 3.        |        |       |       |       |         |
+| 4.        |        |       |       |       |         |
+| 5.        |        |       |       |       |         |
 
 **Real output from one trial**, pasted as text, naming the file and function
 that produced it:
@@ -348,8 +375,6 @@ that produced it:
 
      Look for a pattern. Five failures on one signal is one problem, not five. -->
 
-
-
 ---
 
 ## The Improvement
@@ -362,14 +387,10 @@ that produced it:
 
 <!-- Same format. `run_attacks.py --label after` -->
 
-
-
 **Did it help, and how do I know:**
 
 <!-- Widening the unsure band usually fixes one problem and creates another.
      Reporting that trade honestly is worth full credit. -->
-
-
 
 ---
 
@@ -378,14 +399,10 @@ that produced it:
 <!-- For each attack still getting through and each criterion still missed:
      what you'd do, and why you stopped. -->
 
-
-
 **The trade I'd make if this ran for real:**
 
 <!-- Two sentences. Fewer wrong accusations means more AI text getting through.
      Say which way you'd go and WHO PAYS FOR IT. -->
-
-
 
 <!-- ═════════════════════════════════════════════════════════════════════
 
