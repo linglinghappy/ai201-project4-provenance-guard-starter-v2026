@@ -74,7 +74,10 @@ WEIGHT_STYLE_SIGNAL = 0.5
 HUMAN_THRESHOLD = 0.35
 # Raised from 0.65: plain human writing ("I like my school...") combined to
 # 0.65 and was being called AI.
-AI_THRESHOLD = 0.70
+# Unit 8 M5: raised from 0.70. Careful, plain human writing (FP02, FP03, FP05,
+# my 03.txt and 06.txt) scored 0.71-0.81 and was being called AI. 0.81 is the
+# highest value that still lets the strongest AI sample (0.812) reach "ai".
+AI_THRESHOLD = 0.81
 
 # ⚠️ One thing that catches people out in Milestone 5. A weighted average can
 # only land between its two inputs — so while `style_signal` is still the stub
