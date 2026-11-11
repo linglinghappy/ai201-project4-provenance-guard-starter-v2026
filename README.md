@@ -909,10 +909,101 @@ trade, not a fix.
 <!-- For each attack still getting through and each criterion still missed:
      what you'd do, and why you stopped. -->
 
+After the change, 17 attacks still break and criterion 5 is still missed.
+They fall under the same four patterns as the diagnosis.
+
+**Why I stopped after one change, in general:** the milestone asked for one
+change, measured properly. If I had changed the route at the same time as
+the threshold, I could not say which change moved which number. Each fix
+below is the next single change I would make and measure on its own.
+
+---
+
+**1. Route problems: RQ07, RQ06, RQ02, MF03, MF04, and criterion 5
+(MISSED).**
+
+| Still broken | What happens now |
+|---|---|
+| RQ07 (JSON array body) | 500 crash, and nothing in the log |
+| RQ06 (`creator_id` is an object) | scored, and the object is written to the log |
+| RQ02 (no `creator_id`) | scored and logged as `"unknown"` |
+| MF03 (control characters) | labelled `human` (0.000) |
+| MF04 (punctuation only) | labelled `human` (0.011) |
+| Criterion 5: 50,000 × "word" | 200 and `unsure`, not a 4xx |
+
+- **What I'd do:** validate the input in `app.py::submit` before either
+  signal runs:
+  - if the body isn't a JSON object, return 400 and log it;
+  - require `creator_id` to be a non-empty string, otherwise 400;
+  - cap the length (for example 5,000 words, which is far more than one
+    piece of writing), otherwise 400;
+  - require a minimum share of letters, so control characters, bare
+    punctuation and emoji are refused rather than scored.
+- **Why I stopped:** this is the fix I'd make **next**. It is cheap and
+  low-risk, and it would turn criterion 5 to MET and fix RQ07's silent
+  crash. I didn't make it this time only because of the one-change rule. I
+  chose the threshold first because a wrong accusation of a real writer is
+  worse harm than a 500 on a junk request.
+- **One open question:** the letters check would also need to accept
+  non-Latin scripts like MF07's Arabic. Refusing a real language as
+  "junk" would be another way of treating non-English writers badly.
+
+---
+
+**2. AI text that fools one signal: EV01–EV09 and PI02 (10 attacks).**
+
+These got *worse* or stayed broken. Raising the threshold made it even easier
+for AI text to land in `unsure`. EV09 (0.704) broke this time.
+
+- **What I'd do:**
+  - **Change the combining rule.** "Take the lower score" means fooling
+    one signal is enough. A weighted average (for example 0.6 model / 0.4
+    style) would make an attacker move both.
+  - **Make signal two harder to game.** Count punctuation *kinds* only
+    when each kind appears more than once, so one pasted quotation or a
+    sprinkle of padding (EV03, EV07) doesn't count.
+  - **For short text (EV08)**, return `unsure` with a "too short to
+    judge" note instead of a confident `human`.
+- **Why I stopped:** each of these moves the false-positive side too. The
+  min rule is exactly what protects writers when the signals split (in the
+  before run, FP07 held by 0.008 because of it). Replacing it needs a full before/after run
+  of its own. I'd also need more AI samples than I have: my AI side is
+  only 12 texts.
+
+---
+
+**3. Careful human writing still accused: FP04 (0.833) and FP06 (0.843).**
+
+- **What I'd do:** the threshold can't go higher without losing the `ai`
+  label entirely (criterion 3 breaks above 0.812). The real fix is
+  upstream. Both signals reward "regular and predictable", and a rubric
+  essay or a formal template is regular and predictable *on purpose*. I'd
+  look for a signal that measures something different, for example whether
+  the text contains specific, personal detail (names, places, numbers,
+  first-person events). Many of my own essays have that kind of detail
+  (Taichung's free buses, my sister's cabbage research), but I haven't
+  tested whether it actually separates human from AI text.
+- **Why I stopped:** that is building a new signal, not tuning one, and
+  it's more than this unit's time allowed.
+
+---
+
+**4. Criterion 3 met by 0.002.** It isn't broken, but it is fragile. The
+only `ai` label left in my criterion-3 texts is 0.812 against a 0.81 line.
+Any small change to the model or the text could tip it to MISSED. I'd add
+more AI samples to criterion 3 so the verdict doesn't rest on one text.
+
+---
+
 **The trade I'd make if this ran for real:**
 
-<!-- Two sentences. Fewer wrong accusations means more AI text getting through.
-     Say which way you'd go and WHO PAYS FOR IT. -->
+I would keep leaning toward fewer wrong accusations, as the 0.81 threshold
+does, because a writer told their own work looks like AI pays with their
+reputation and has to defend themselves, and that falls hardest on
+second-language writers like FP03 and me. The cost is paid by the platform
+and its readers, who will see more AI-written text get through as `unsure`,
+so I'd make sure `unsure` sends the piece to a human reviewer rather than
+quietly letting it pass.
 
 <!-- ═════════════════════════════════════════════════════════════════════
 
