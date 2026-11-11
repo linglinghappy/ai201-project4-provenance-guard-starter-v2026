@@ -606,6 +606,174 @@ And `/ping` afterwards, from `eval_appeals.py::main`:
 
      Look for a pattern. Five failures on one signal is one problem, not five. -->
 
+**Verdicts:** criteria 2, 3 and 4 are MET. Criteria 1 and 5 are MISSED,
+because the target failed in every trial. All three trials were identical,
+so nothing in the pipeline is unstable.
+
+There are 24 failures to explain: 2 missed criteria and 22 broken attacks.
+They come from **four problems**, not 24.
+
+---
+
+**Pattern 1: careful, plain writing looks like AI to both signals.**
+*Covers criterion 1 (my `03.txt` and `06.txt`), FP02, FP03, FP04, FP05 and
+FP06. 7 accusations of real writers.*
+
+| Input | Signal one (model) | Signal two (style) | Combined | Label |
+|---|---|---|---|---|
+| my `03.txt` (scientists essay) | 0.711 | 1.000 | 0.711 | ai |
+| my `06.txt` (Taichung buses) | 0.717 | 0.893 | 0.717 | ai |
+| FP02 formal register | 0.739 | 1.000 | 0.739 | ai |
+| FP03 non-native speaker | 0.805 | 0.980 | 0.805 | ai |
+| FP04 rubric essay | 0.833 | 0.952 | 0.833 | ai |
+| FP05 technical docs | 0.801 | 1.000 | 0.801 | ai |
+| FP06 formal template | 0.881 | 0.843 | 0.843 | ai |
+
+- **Stage: signal one and signal two together.** The combining rule can't
+  help, because nothing is split.
+- **Signal one's mechanism:** careful writers, and especially second-language
+  writers, choose safe, common words and standard phrases ("From my
+  perspective", "In addition", "As a result"). GPT-2 finds those easy to
+  predict, so perplexity is low and the model score is high.
+- **Signal two's mechanism:** it measures sentence-length spread and the
+  number of *kinds* of punctuation. My `03.txt` uses only two kinds (`,` and
+  `.`) and its sentences are all of similar length (spread 0.28). Both
+  measures sit at the "AI" end, so the style score is 1.0, the maximum.
+- **Why this is one problem:** I picked two signals so that they would
+  disagree on human writing. On *plain, careful* writing they don't. Both
+  really measure "regular and predictable", and careful human writing is
+  regular and predictable. The min rule only protects writers when the
+  signals split. Here they agree, so there is no split to resolve toward
+  human.
+
+---
+
+**Pattern 2: an attacker only has to fool ONE signal, and clean AI text has
+almost no margin.**
+*Covers EV01, EV02, EV03, EV04, EV05, EV06, EV07, EV08 and PI02. 9 AI texts
+let through.*
+
+- **Stage: the combining rule (take the lower score) and the label mapping
+  (AI threshold 0.70).**
+- **Mechanism:** the min rule means whichever signal is *lower* decides. An
+  attacker doesn't need to fool both signals, only one. On top of that, the
+  untouched `clearly_ai` sample scores only 0.754, just **0.054 above** my AI
+  threshold. Any edit that pushes one signal down by a little more than 0.05
+  takes AI text out of the `ai` label.
+
+The failures split by which signal was pushed down:
+
+*Signal one pushed down (the model score dropped, style stayed high):*
+
+| Attack | Model | Style | Combined | Label |
+|---|---|---|---|---|
+| EV01 typos | **0.164** | 1.000 | 0.164 | human |
+| EV04 unusual words | **0.611** | 1.000 | 0.611 | unsure |
+| EV05 heavy editing | **0.321** | 0.565 | 0.321 | human |
+| EV08 below the token window | **0.245** | 1.000 | 0.245 | human |
+| PI02 fake "SYSTEM:" line | **0.204** | 0.582 | 0.204 | human |
+
+Typos, rare words, an odd "SYSTEM:" line and very short text all make GPT-2
+more *surprised*. Perplexity rises, so the model score falls. EV01 was aimed
+at signal two ("typos raise word variety"), but my signal two doesn't measure
+word variety, and its style score stayed at 1.0. The typos broke **signal
+one** instead: misspelled words are rare token sequences for GPT-2. PI02 did
+not work as an instruction, since nothing in my service reads instructions.
+It worked as *unusual text*.
+
+*Signal two pushed down (style dropped, model stayed moderate):*
+
+| Attack | Model | Style | Combined | Label |
+|---|---|---|---|---|
+| EV03 pasted quotation | 0.666 | **0.398** | 0.398 | unsure |
+| EV06 one long + one short sentence | 0.573 | **0.500** | 0.500 | unsure |
+| EV07 punctuation padding | 0.586 | **0.417** | 0.417 | unsure |
+
+Signal two can't read. A quotation adds quotation marks and other
+punctuation kinds, padding adds more kinds, and one very long sentence next
+to one very short one creates a big length spread. Each changes the
+*shape* of the text without changing who wrote it.
+
+*Both pushed down a little:* EV02 (broken-up sentences) moved style to 0.608
+and model to 0.594. Neither is a big drop, but both are below 0.70.
+
+---
+
+**Pattern 3: the route accepts text that isn't writing, and signal two gives
+it a default score that lands on a label.**
+*Covers criterion 5 (50,000 × "word"), MF03, MF04, MF05, MF06 and MF07. 6
+junk inputs given confident labels.*
+
+| Input | Model | Style | Combined | Label |
+|---|---|---|---|---|
+| 50,000 × "word" (criterion 5) | 0.998 | 0.750 | 0.750 | ai |
+| MF05 one very long word | 0.998 | 0.750 | 0.750 | ai |
+| MF06 emoji only | 0.997 | 0.750 | 0.750 | ai |
+| MF07 Arabic (right-to-left) | 0.906 | 0.750 | 0.750 | ai |
+| MF03 control characters | 0.000 | 0.750 | 0.000 | human |
+| MF04 punctuation only | 0.011 | 0.250 | 0.011 | human |
+
+- **Stage: the route first, then signal two.**
+- **Route mechanism:** `app.py::submit` only checks that `text` is a
+  non-empty string. It has no length limit and no check that the text
+  contains words. So 50,000 repeated words, emoji, control characters and a
+  string of punctuation all go through to scoring.
+- **Signal two mechanism:** the identical 0.750 is a fingerprint. Text with
+  no sentence breaks counts as one sentence, so `sentence_length_spread`
+  returns its neutral midpoint (0.65, which scales to 0.5). Text with no
+  punctuation has 0 kinds (which scales to 0). That gives
+  1 − (0.5 + 0) / 2 = **0.75**, which is above my 0.70 AI threshold. Signal
+  one scores repetitive or byte-level tokens as very predictable (0.9+), so
+  min(0.9+, 0.75) = 0.75 → `ai`. **Any input without punctuation or
+  sentence breaks gets labelled AI.**
+- **MF07 is the worst of these:** it is real writing by a person, in a
+  language GPT-2 wasn't trained on, and it was called AI by the same
+  default.
+- MF03 and MF04 go the other way: GPT-2 is so surprised by control
+  characters and bare punctuation that the model score is about 0, so junk
+  is confidently labelled `human`.
+
+---
+
+**Pattern 4: the route trusts the shape of the request body.**
+*Covers RQ02, RQ06 and RQ07.*
+
+- **Stage: the route.**
+- **RQ07 (500 crash, no log entry):**
+  `payload = request.get_json(silent=True) or {}` only falls back to `{}`
+  when the body is empty or unparseable. A JSON array like `["text"]` is
+  truthy, so `payload` is a *list*, and `payload.get("text")` raises
+  `AttributeError`. That happens before any `audit.log_...` call, so the
+  crash leaves no trace. (The 429 handler already checks
+  `isinstance(payload, dict)`. The route doesn't.)
+- **RQ06 (object as `creator_id`):** the route never checks that
+  `creator_id` is a string, so `{"id": "x"}` was scored and written to the
+  log as an object.
+- **RQ02 (no `creator_id`):** the route defaults it to `"unknown"`. The
+  decision is logged but can't be traced to anyone, and every caller with
+  no id shares one rate-limit bucket.
+
+---
+
+**What the patterns say together:** Patterns 1 and 2 are the same weakness
+seen from two sides. My two signals both measure "regular and predictable",
+and the AI threshold sits just under where clean AI text lands. Careful human
+writing is pushed *over* the threshold (Pattern 1), and lightly disguised AI
+text slips *under* it (Pattern 2). Patterns 3 and 4 are route problems: the
+service scores things it should have refused.
+
+**Criteria I'm not revising:** both misses were measurable, and the targets
+were fair. Criterion 1 at "at most 1 in 10" stays. Loosening it to make the
+miss go away is exactly the change that doesn't count.
+
+**Honest note on the criteria I met:**
+- Criterion 3 met its target, but only just. `borderline.txt` was labelled
+  `human` (0.349, right on the 0.35 line), and the only `unsure` came from my
+  plain "market" text at 0.673, 0.027 below the AI line.
+- Criterion 2 rests on a single pair of samples. If I tightened one, it
+  would be criterion 2: require the spread on several AI/human pairs, not
+  one.
+
 ---
 
 ## The Improvement
