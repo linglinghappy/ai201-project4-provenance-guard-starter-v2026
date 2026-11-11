@@ -443,17 +443,151 @@ reason.
 
 | Criterion | Target | Run 1 | Run 2 | Run 3 | Verdict |
 | ----------- | -------- | ------- | ------- | ------- | --------- |
-| 1.        |        |       |       |       |         |
-| 2.        |        |       |       |       |         |
-| 3.        |        |       |       |       |         |
-| 4.        |        |       |       |       |         |
-| 5.        |        |       |       |       |         |
+| 1. My own writing labelled `ai` | ≤ 1 of 10 | 2/10 | 2/10 | 2/10 | **MISSED** |
+| 2. `clearly_ai` minus `clearly_human` combined score | ≥ 0.35 | 0.754 | 0.754 | 0.754 | MET |
+| 3. human, unsure and ai all reached among 6 texts | 3 of 3 | 3/3 | 3/3 | 3/3 | MET |
+| 4. Real appeals → `under_review` in the log; fake id → 404, log unchanged | 5 of 5 + 404 | 5/5 + 404 | 5/5 + 404 | 5/5 + 404 | MET |
+| 5. Bad input → 4xx with a JSON message, never a 500; `/ping` answers after | 4 of 4 + ping | 3/4 + ping | 3/4 + ping | 3/4 + ping | **MISSED** |
 
-**Real output from one trial**, pasted as text, naming the file and function
-that produced it:
+All three trials returned identical scores, as expected: nothing in either
+signal is random.
+
+- Criteria 1, 2, 3, 5: `results/run_2026-11-10_2219_before.md`, produced by
+  `run_eval.py::main` against `app.py::submit`.
+- Criterion 4 and the `/ping` half of 5:
+  `results/appeal_eval_2026-11-10_2221_before.md`, produced by
+  `eval_appeals.py::main` against `app.py::appeal` and `app.py::ping`.
+
+**Real output from one trial** (Trial 1 of each), pasted as text:
+
+**Criterion 1:** `run_eval.py::main`, `results/run_2026-11-10_2219_before.md`.
+The two pieces labelled `ai` (`03.txt`, `06.txt`), and one that wasn't
+(`01.txt`) for comparison:
 
 ```json
+[
+  {
+    "status": 200,
+    "guess": "ai",
+    "confidence": 0.7111,
+    "model_score": 0.7111,
+    "style_score": 1.0,
+    "label": "Our automated check found strong signs that this may have been written with AI. The check can be wrong. If you wrote this yourself, you can appeal and a person will review it.",
+    "sent": "I disagree with the statement that scientists and scholars should conc"
+  },
+  {
+    "status": 200,
+    "guess": "ai",
+    "confidence": 0.7173,
+    "model_score": 0.7173,
+    "style_score": 0.8927,
+    "label": "Our automated check found strong signs that this may have been written with AI. The check can be wrong. If you wrote this yourself, you can appeal and a person will review it.",
+    "sent": "I support Maria’s idea of investing the city's budget in infrastructur"
+  },
+  {
+    "status": 200,
+    "guess": "unsure",
+    "confidence": 0.4203,
+    "model_score": 0.4203,
+    "style_score": 0.4219,
+    "label": "There isn't enough evidence to tell whether this was written by a person or with AI.",
+    "sent": "Steve Job was proud of giving speech for graduates of Stanford. For th"
+  }
+]
+```
 
+**Criterion 2:** `run_eval.py::main`, `results/run_2026-11-10_2219_before.md`.
+0.7544 − 0.0 = 0.754:
+
+```json
+[
+  {"status": 200, "guess": "ai", "confidence": 0.7544, "model_score": 0.7544, "style_score": 0.9192, "sent": "clearly_ai.txt"},
+  {"status": 200, "guess": "human", "confidence": 0.0, "model_score": 0.4445, "style_score": 0.0, "sent": "clearly_human.txt"}
+]
+```
+
+**Criterion 3:** `run_eval.py::main`, `results/run_2026-11-10_2219_before.md`.
+Guesses in order: ai, ai, human, human, human, unsure:
+
+```json
+[
+  {"status": 200, "guess": "ai", "confidence": 0.7544, "model_score": 0.7544, "style_score": 0.9192},
+  {"status": 200, "guess": "ai", "confidence": 0.8124, "model_score": 0.8124, "style_score": 0.9781},
+  {"status": 200, "guess": "human", "confidence": 0.0, "model_score": 0.4445, "style_score": 0.0},
+  {"status": 200, "guess": "human", "confidence": 0.1159, "model_score": 0.1159, "style_score": 0.6667},
+  {"status": 200, "guess": "human", "confidence": 0.3489, "model_score": 0.3489, "style_score": 0.5488},
+  {"status": 200, "guess": "unsure", "confidence": 0.6733, "model_score": 0.6733, "style_score": 1.0}
+]
+```
+
+**Criterion 4:** `eval_appeals.py::main`,
+`results/appeal_eval_2026-11-10_2221_before.md`. One real appeal, then the
+fake id:
+
+```json
+{
+  "content_id": "c_8023e38e3eb5",
+  "submit_status": 200,
+  "appeal_status": 200,
+  "response": {
+    "content_id": "c_8023e38e3eb5",
+    "message": "Thanks. Your appeal has been recorded and a person will review it.",
+    "status": "under_review"
+  },
+  "under_review_entries_in_log": 1,
+  "log_entry": {
+    "content_id": "c_8023e38e3eb5",
+    "creator_id": "eval_appeal_t1_1",
+    "event": "appeal",
+    "reasoning": "I wrote this myself (eval trial 1, appeal 1).",
+    "status": "under_review",
+    "timestamp": "2026-11-11T04:21:34+00:00"
+  },
+  "passed": true
+}
+```
+
+```json
+{
+  "status": 404,
+  "response": {
+    "error": "not_found",
+    "message": "No submission with content_id 'c_doesnotexist0'."
+  },
+  "log_entries_before": 161,
+  "log_entries_after": 161,
+  "passed": true
+}
+```
+
+**Criterion 5:** `run_eval.py::main`, `results/run_2026-11-10_2219_before.md`.
+Three 400s, then the 50,000-word body scored and labelled `ai` with a 200:
+
+```json
+[
+  {"status": 400, "guess": null, "confidence": null, "sent": "{\"creator_id\": \"eval_bad_missing\"}"},
+  {"status": 400, "guess": null, "confidence": null, "sent": "(empty text)"},
+  {"status": 400, "guess": null, "confidence": null, "sent": "{\"text\": null, \"creator_id\": \"eval_bad_null\"}"},
+  {
+    "status": 200,
+    "guess": "ai",
+    "confidence": 0.75,
+    "model_score": 0.9975,
+    "style_score": 0.75,
+    "label": "Our automated check found strong signs that this may have been written with AI. The check can be wrong. If you wrote this yourself, you can appeal and a person will review it.",
+    "sent": "word word word word word word word word word word word word word word "
+  }
+]
+```
+
+And `/ping` afterwards, from `eval_appeals.py::main`:
+
+```json
+{
+  "status": 200,
+  "response": {"ok": true, "service": "provenance-guard", "you_sent": "still alive?"},
+  "passed": true
+}
 ```
 
 **Diagnoses**

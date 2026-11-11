@@ -22,49 +22,81 @@ A scenario carries **either** of these:
               because you cannot express "the field is missing" as a string.
 """
 
+from pathlib import Path
+
+_SAMPLES = Path(__file__).parent / "samples"
+
+
+def _sample(name: str) -> str:
+    return (_SAMPLES / name).read_text(encoding="utf-8").strip()
+
+
+def _my_writing() -> list[str]:
+    """
+    Criterion 1: ten pieces I wrote myself, one per file in samples/my_writing/
+    (01.txt ... 10.txt). A missing file shows up as a placeholder, so
+    validate() refuses to run until all ten are there.
+    """
+    folder = _SAMPLES / "my_writing"
+    texts = []
+    for i in range(1, 11):
+        f = folder / f"{i:02d}.txt"
+        texts.append(f.read_text(encoding="utf-8").strip() if f.exists()
+                     else f"REPLACE ME: samples/my_writing/{i:02d}.txt is missing")
+    return texts
+
+
 SCENARIOS = [
     {
+        # Criterion 1 — target: at most 1 of 10 labelled "ai", in every trial.
         "name": "my own writing",
         "criterion": 1,
-        # ⚠️ PUT YOUR OWN WRITING HERE. Not AI text, not a sample from the web —
-        # things you actually wrote. This is the criterion that matters most and
-        # it's meaningless with someone else's prose.
+        "texts": _my_writing(),
+    },
+    {
+        # Criterion 2 — target: clearly_ai's combined score is at least 0.35
+        # higher than clearly_human's, in every trial.
+        "name": "score spread",
+        "criterion": 2,
         "texts": [
-            "REPLACE ME with a paragraph you wrote yourself.",
-            "REPLACE ME with another one. Ten pieces is the usual number.",
+            _sample("clearly_ai.txt"),
+            _sample("clearly_human.txt"),
         ],
     },
     {
+        # Criterion 3 — target: human, unsure and ai each appear at least once
+        # among these 6, in every trial. Order: 2 AI, 2 human, 2 borderline.
         "name": "label coverage",
-        "criterion": 2,
-        # Inputs spread across your score range, so you can check all three
-        # labels are actually reachable.
+        "criterion": 3,
         "texts": [
-            "REPLACE ME with something you're confident is AI-generated.",
-            "REPLACE ME with something you're confident is human-written.",
-            "REPLACE ME with something genuinely borderline.",
+            _sample("clearly_ai.txt"),
+            "Artificial intelligence is transforming many industries. It offers "
+            "significant benefits, including increased efficiency and improved "
+            "decision-making. However, it also raises important ethical considerations.",
+            _sample("clearly_human.txt"),
+            "Grandma kept her buttons in a tin that once held Danish cookies \u2014 a "
+            "cruel trick on every grandchild. The lid stuck; you had to pry it with a "
+            "butter knife, swearing quietly.",
+            _sample("borderline.txt"),
+            "I walked to the market this morning and bought some apples. The weather "
+            "was cold, but the sun came out later. I talked to the old man who sells bread.",
         ],
     },
-    # A bad-input criterion looks like this. Uncomment and adjust if that's one
-    # of your five — these are raw request bodies, sent exactly as written.
-    #
-    # {
-    #     "name": "bad input",
-    #     "criterion": 3,
-    #     "bodies": [
-    #         {"text": "", "creator_id": "eval_bad_empty"},
-    #         {"creator_id": "eval_bad_missing"},          # no text field at all
-    #         {"text": "word " * 50000, "creator_id": "eval_bad_huge"},
-    #         {"text": None, "creator_id": "eval_bad_null"},
-    #     ],
-    # },
-
-    # TODO: add what your remaining criteria need.
-    #
-    # A criterion about the appeal path can't be tested by sending text alone;
-    # it needs a submission first and then an appeal against the content_id
-    # that came back. You'll need to test that one by hand, or extend this file
-    # and run_eval.py to do it. Saying which you did is part of the write-up.
+    # Criterion 4 (appeals) can't be expressed as texts or bodies: it needs a
+    # submission first, then an appeal against the content_id that came back.
+    # It is tested by eval_appeals.py instead, three trials, same as here.
+    {
+        # Criterion 5 — target: 4 of 4 return a 4xx with a JSON message, never
+        # a 500. (/ping afterwards is checked by eval_appeals.py.)
+        "name": "bad input",
+        "criterion": 5,
+        "bodies": [
+            {"creator_id": "eval_bad_missing"},               # no text field
+            {"text": "", "creator_id": "eval_bad_empty"},     # empty text
+            {"text": None, "creator_id": "eval_bad_null"},    # text is null
+            {"text": "word " * 50000, "creator_id": "eval_bad_huge"},  # 50,000 words
+        ],
+    },
 ]
 
 
